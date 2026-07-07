@@ -1,0 +1,10 @@
+{
+  "name": "clevercloud-csp-logger-wrapper",
+  "private": true,
+  "scripts": {
+    "start": "./clevercloud/start.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

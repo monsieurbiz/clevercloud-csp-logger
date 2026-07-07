@@ -1,0 +1,17 @@
+app/
+.tmp/
+node_modules/
+
+conf/env.json
+env.json
+app/conf/env.json
+config.json
+
+conf/logger.json
+logger.json
+csp.log
+TODO.txt
+yarn.lock
+package-lock.json
+
+clevercloud-gally-api/
