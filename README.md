@@ -1,59 +1,54 @@
 # Clever Cloud CSP Logger wrapper
 
-This repository is a thin Clever Cloud wrapper around upstream [`mozilla/csp-logger`](https://github.com/mozilla/csp-logger).
+Wrapper Clever Cloud très léger autour de [`mozilla/csp-logger`](https://github.com/mozilla/csp-logger). Le code upstream n'est pas versionné ici : il est récupéré dans `app/` pendant le build, puis configuré au démarrage avec les variables d'environnement Clever Cloud.
 
-The Mozilla application source is not stored here. During Clever Cloud deployment the wrapper fetches it into the ignored `app/` directory, installs its production dependencies there, generates runtime configuration from environment variables, and starts it.
+Pour l'utilisation après déploiement, voir [`docs.md`](docs.md).
 
-## Clever Cloud deployment flow
+## Démarrage rapide Clever Cloud
 
-Configure these hooks in Clever Cloud:
+1. Créer une application Clever Cloud de type **Node.js & Bun**.
+2. Ajouter un add-on **MySQL/MariaDB** et le lier à l'application.
+   - Les variables `MYSQL_ADDON_*` sont fournies automatiquement par l'add-on lié.
+   - Pas besoin de filesystem persistant : `app/` est reconstruit à chaque build.
+3. Configurer les variables d'environnement de l'application :
 
-```text
-CC_PRE_BUILD_HOOK=./clevercloud/pre_build.sh
-CC_POST_BUILD_HOOK=./clevercloud/post_build.sh
-```
+   ```text
+   CC_PRE_BUILD_HOOK=clevercloud/pre_build.sh
+   CC_POST_BUILD_HOOK=clevercloud/post_build.sh
+   STORE=sql
+   DOMAIN_WHITELIST=example.com,www.example.com
+   # Optionnel : branche, tag ou commit upstream à déployer
+   CSP_LOGGER_REF=master
+   # Optionnel : sources CSP à ignorer, séparées par des virgules
+   SOURCE_BLACKLIST=
+   ```
 
-Clever Cloud can then launch the app with the root package script:
+   `DOMAIN_WHITELIST` contient uniquement des hôtes, sans `https://` ni chemin.
 
-```text
-npm start
-```
+4. Déployer vers la branche Clever `master` :
 
-which runs `./clevercloud/start.sh`.
+   ```sh
+   git push clever main:master
+   ```
 
-## Upstream selection
+## Scripts du wrapper
 
-Optional variables:
+- `clevercloud/pre_build.sh` : récupère `mozilla/csp-logger` (ou `CSP_LOGGER_REPOSITORY`) dans `app/`, sur `CSP_LOGGER_REF` ou `master` par défaut.
+- `clevercloud/post_build.sh` : installe les dépendances de production upstream dans `app/` (`npm ci --omit=dev` si possible, sinon `npm install --omit=dev`).
+- `clevercloud/start.sh` : génère `app/conf/env.json` depuis les variables d'environnement, puis lance `node app/csp-logger.js`.
+- `npm start` : lance `clevercloud/start.sh`.
 
-- `CSP_LOGGER_REPOSITORY` - Git repository to fetch. Defaults to `https://github.com/mozilla/csp-logger.git`.
-- `CSP_LOGGER_REF` - branch, tag, or commit to deploy. Defaults to `master`.
+## Variables runtime utiles
 
-## Runtime configuration
+- `STORE` : backend de stockage, recommandé `sql`.
+- `PORT` : port HTTP, fourni par Clever Cloud ou `2600` par défaut.
+- `DOMAIN_WHITELIST` : liste d'hôtes autorisés, séparés par des virgules.
+- `SOURCE_BLACKLIST` : liste optionnelle de sources à ignorer, séparées par des virgules.
+- `DB_DIALECT` : dialecte SQL, `mysql` par défaut.
+- `MYSQL_ADDON_HOST`, `MYSQL_ADDON_DB`, `MYSQL_ADDON_USER`, `MYSQL_ADDON_PASSWORD`, `MYSQL_ADDON_PORT` : fournis par l'add-on MySQL/MariaDB lié.
+- Alternatives manuelles si besoin : `DB_HOST`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `DB_PORT`.
 
-`clevercloud/start.sh` generates `app/conf/env.json` on each start. This file is intentionally ignored and must not be committed.
+## Sélection de l'upstream
 
-Supported variables:
-
-- `STORE` - csp-logger store, defaults to `sql`.
-- `PORT` - HTTP port, defaults to `2600`.
-- `DOMAIN_WHITELIST` - required for functional logging; comma-separated host whitelist, converted to a JSON array. Use hosts only, without `https://`.
-- `SOURCE_BLACKLIST` - comma-separated source blacklist, converted to a JSON array.
-- `DB_DIALECT` - SQL dialect, defaults to `mysql`.
-- `MYSQL_ADDON_HOST` or `DB_HOST` - database host, defaults to `localhost`.
-- `MYSQL_ADDON_DB` or `DB_NAME` - database name, defaults to `csp`.
-- `MYSQL_ADDON_USER` or `DB_USERNAME` - database username, defaults to empty.
-- `MYSQL_ADDON_PASSWORD` or `DB_PASSWORD` - database password, defaults to empty.
-- `MYSQL_ADDON_PORT` or `DB_PORT` - database port, defaults to `3306`.
-
-Health checks are enabled in the generated configuration. Logger configuration remains set to `log4js.json` for upstream compatibility.
-
-For a typical Clever Cloud MySQL deployment, set at least:
-
-```text
-STORE=sql
-DOMAIN_WHITELIST=example.com,www.example.com
-CC_PRE_BUILD_HOOK=clevercloud/pre_build.sh
-CC_POST_BUILD_HOOK=clevercloud/post_build.sh
-```
-
-The Clever MySQL add-on variables are used automatically when present.
+- `CSP_LOGGER_REPOSITORY` : dépôt Git à récupérer, défaut `https://github.com/mozilla/csp-logger.git`.
+- `CSP_LOGGER_REF` : branche, tag ou commit à déployer, défaut `master`.
